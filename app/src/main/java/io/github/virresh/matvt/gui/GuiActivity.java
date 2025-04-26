@@ -80,7 +80,7 @@ public class GuiActivity extends AppCompatActivity {
         bt_saveBossKeyValue.setOnClickListener(view -> {
             String dat = et_override.getText().toString();
             dat = dat.replaceAll("[^0-9]", "");
-            int keyValue; if (dat.isEmpty()) keyValue = KeyEvent.KEYCODE_VOLUME_MUTE;
+            int keyValue; if (dat.isEmpty()) keyValue = 82;
             else keyValue = Integer.parseInt(dat);
             isBossKeyChanged();
             Helper.setOverrideStatus(this, isBossKeyChanged());
@@ -162,7 +162,7 @@ public class GuiActivity extends AppCompatActivity {
     }
 
     private boolean isBossKeyChanged() {
-        return Helper.getBossKeyValue(this) != 164;
+        return Helper.getBossKeyValue(this) != 82;
     }
 
     private void checkValues(IconStyleSpinnerAdapter adapter) {

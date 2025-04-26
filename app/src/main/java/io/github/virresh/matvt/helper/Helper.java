@@ -66,7 +66,7 @@ public class Helper {
 
     public static int getBossKeyValue(Context ctx) {
         SharedPreferences sp = ctx.getSharedPreferences(PREFS_ID, Context.MODE_PRIVATE);
-        return sp.getInt(PREF_KEY_CB_OVERRIDE_VAL, 164);
+        return sp.getInt(PREF_KEY_CB_OVERRIDE_VAL, 82);
     }
 
     @SuppressLint("ApplySharedPref")

@@ -270,7 +270,7 @@
                 android:layout_gravity="center_vertical"
                 android:layout_weight="0.20"
                 android:buttonTint="@color/white"
-                android:hint="(Default: 164)"
+                android:hint="(Default: 82)"
                 android:inputType="number"
                 android:nextFocusRight="@id/bt_detect"
                 android:textColor="@color/white"
