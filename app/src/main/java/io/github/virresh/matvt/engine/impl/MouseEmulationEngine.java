@@ -13,7 +13,7 @@ import android.os.CountDownTimer;
 import android.os.Handler;
 import android.util.Log;
 import android.view.KeyEvent;
-import android.view.View;
+import android.view.MotionEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -29,9 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import io.github.virresh.matvt.helper.Helper;
 import io.github.virresh.matvt.view.MouseCursorView;
 import io.github.virresh.matvt.view.OverlayView;
+import io.github.virresh.matvt.engine.impl.InputManagerWrapper;
 
 public class MouseEmulationEngine {
 
@@ -68,6 +68,8 @@ public class MouseEmulationEngine {
     private Point DPAD_Center_Init_Point = new Point();
 
     private Runnable previousRunnable;
+
+    private InputManagerWrapper mInputManagerWrapper;
 
     // tells which keycodes correspond to which pointer movement in scroll and movement mode
     // scroll directions don't match keycode instruction because that's how swiping works
@@ -134,6 +136,7 @@ public class MouseEmulationEngine {
         mPointerControl.reset();
         timerHandler = new Handler();
         isEnabled = false;
+        mInputManagerWrapper = InputManagerWrapper.create();
     }
 
     private void attachTimer (final int direction) {
@@ -220,6 +223,7 @@ public class MouseEmulationEngine {
         Log.i(LOG_TAG, "Actual Duration used -- " + DURATION);
         Path clickPath = new Path();
         clickPath.moveTo(clickPoint.x, clickPoint.y);
+        Log.i(LOG_TAG, "createClick at point " + clickPoint.toString());
         GestureDescription.StrokeDescription clickStroke =
                 new GestureDescription.StrokeDescription(clickPath, 0, DURATION);
         GestureDescription.Builder clickBuilder = new GestureDescription.Builder();
@@ -241,7 +245,6 @@ public class MouseEmulationEngine {
     }
 
     public boolean perform (KeyEvent keyEvent) {
-
         // toggle mouse mode if going via bossKey
         if (keyEvent.getKeyCode() == bossKey && !isBossKeyDisabled && !isBossKeySetToToggle) {
             if (keyEvent.getAction() == KeyEvent.ACTION_UP) {
@@ -318,6 +321,7 @@ public class MouseEmulationEngine {
                 consumed = true;
             }
             else if(keyEvent.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
+                Log.i(LOG_TAG, "KeyEvent.KEYCODE_ENTER Down");
                 // just consume this event to prevent propagation
                 DPAD_Center_Init_Point = new Point((int) mPointerControl.getPointerLocation().x, (int) mPointerControl.getPointerLocation().y);
                 DPAD_ENTER_PRESSED = true;
@@ -333,6 +337,7 @@ public class MouseEmulationEngine {
                 consumed = true;
             }
             else if (keyEvent.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
+                Log.i(LOG_TAG, "KeyEvent.KEYCODE_ENTER Up");
                 DPAD_ENTER_PRESSED = false;
                 detachPreviousTimer();
 //                if (keyEvent.getEventTime() - keyEvent.getDownTime() > 500) {
@@ -385,10 +390,31 @@ public class MouseEmulationEngine {
                         }
                     }
                     if (!consumed && !wasIME) {
-                        mService.dispatchGesture(createClick(mPointerControl.getPointerLocation(), keyEvent.getEventTime() - keyEvent.getDownTime()), null, null);
+//                        mService.dispatchGesture(createClick(mPointerControl.getPointerLocation(), keyEvent.getEventTime() - keyEvent.getDownTime()), null, null);
+                        long downTime = System.currentTimeMillis();
+                        long eventTime = System.currentTimeMillis();
+                        MotionEvent downEvent = MotionEvent.obtain(
+                                downTime,
+                                eventTime,
+                                MotionEvent.ACTION_DOWN,
+                                pInt.x,
+                                pInt.y,
+                                0 // metaState
+                        );
+                        downEvent.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);
+                        MotionEvent upEvent = MotionEvent.obtain(
+                                downTime,
+                                eventTime + 50, // Small delay for the "up" event
+                                MotionEvent.ACTION_UP,
+                                pInt.x,
+                                pInt.y,
+                                0 // metaState
+                        );
+                        upEvent.setSource(android.view.InputDevice.SOURCE_TOUCHSCREEN);
+                        mInputManagerWrapper.injectInputEvent(downEvent, InputManagerWrapper.INJECT_INPUT_EVENT_MODE_ASYNC);
+                        mInputManagerWrapper.injectInputEvent(upEvent, InputManagerWrapper.INJECT_INPUT_EVENT_MODE_ASYNC);
                     }
-                }
-                else{
+                } else {
                     //Implement Drag Function here
                 }
             }
@@ -441,9 +467,9 @@ public class MouseEmulationEngine {
             Log.i(LOG_TAG, "Root Node ======>>>>>" + ((node != null) ? node.toString() : "null"));
         }
         List<AccessibilityNodeInfo> nodeInfos = new ArrayList<>();
-        Log.i(LOG_TAG, "Node found ?" + ((node != null) ? node.toString() : "null"));
+        Log.i(LOG_TAG, "Root node found ?" + ((node != null) ? node.toString() : "null"));
         node = findNodeHelper(node, action, pInt, nodeInfos);
-        Log.i(LOG_TAG, "Node found ?" + ((node != null) ? node.toString() : "null"));
+        Log.i(LOG_TAG, "Deepest node found ?" + ((node != null) ? node.toString() : "null"));
         Log.i(LOG_TAG, "Number of Nodes ?=>>>>> " + nodeInfos.size());
         return nodeInfos;
     }
@@ -454,7 +480,9 @@ public class MouseEmulationEngine {
         }
         Rect tmp = new Rect();
         node.getBoundsInScreen(tmp);
+        Log.i(LOG_TAG, "node bounds in screen: " + tmp.toString());
         if (!tmp.contains(pInt.x, pInt.y)) {
+            Log.i(LOG_TAG, "node doesn't contain cursor");
             // node doesn't contain cursor
             return null;
         }
@@ -467,7 +495,7 @@ public class MouseEmulationEngine {
 //            nodeList.add(node);
 //        }
         int childCount = node.getChildCount();
-        for (int i=0; i<childCount; i++) {
+        for (int i=0; i<childCount; i++) {  // TODO: NOT NECESSARILY THE INNERMOST CHILD
             AccessibilityNodeInfo child = findNodeHelper(node.getChild(i), action, pInt, nodeList);
             if (child != null) {
                 // always picks the last innermost clickable child
