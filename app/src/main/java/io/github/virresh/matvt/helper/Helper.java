@@ -4,11 +4,14 @@ import android.accessibilityservice.AccessibilityServiceInfo;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.provider.Settings;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityManager;
 
 import java.util.List;
+
+import rikka.shizuku.Shizuku;
 
 public class Helper {
 
@@ -48,6 +51,16 @@ public class Helper {
 
     public static boolean isOverlayDisabled(Context ctx) {
         return !Settings.canDrawOverlays(ctx);
+    }
+
+    public static boolean isShizukuMissing() {
+        if (!Shizuku.pingBinder()) return true;
+        return Shizuku.isPreV11();
+    }
+
+    public static boolean isShizukuDisabled() {
+        if (isShizukuMissing()) return true;
+        return Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED;
     }
 
     public static boolean isOverriding(Context ctx) {

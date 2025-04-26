@@ -2,10 +2,10 @@ package io.github.virresh.matvt.gui;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.provider.Settings;
-import android.view.KeyEvent;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemSelectedListener;
@@ -26,6 +26,7 @@ import io.github.virresh.matvt.engine.impl.MouseEmulationEngine;
 import io.github.virresh.matvt.engine.impl.PointerControl;
 import io.github.virresh.matvt.helper.Helper;
 import io.github.virresh.matvt.helper.KeyDetection;
+import rikka.shizuku.Shizuku;
 
 import static io.github.virresh.matvt.engine.impl.MouseEmulationEngine.bossKey;
 import static io.github.virresh.matvt.engine.impl.MouseEmulationEngine.scrollSpeed;
@@ -33,7 +34,7 @@ import static io.github.virresh.matvt.engine.impl.MouseEmulationEngine.scrollSpe
 public class GuiActivity extends AppCompatActivity {
     CountDownTimer repopulate;
     CheckBox cb_mouse_bordered, cb_disable_bossKey, cb_behaviour_bossKey;
-    TextView gui_acc_perm, gui_acc_serv, gui_overlay_perm, gui_overlay_serv, gui_about;
+    TextView gui_acc_perm, gui_acc_serv, gui_overlay_perm, gui_overlay_serv, gui_shizuku_perm, gui_shizuku_serv, gui_about;
 
     EditText et_override;
     Button bt_saveBossKeyValue;
@@ -44,6 +45,7 @@ public class GuiActivity extends AppCompatActivity {
 
     public static int ACTION_MANAGE_OVERLAY_PERMISSION_REQUEST_CODE = 701;
     public static int ACTION_ACCESSIBILITY_PERMISSION_REQUEST_CODE = 702;
+    public static int ACTION_SHIZUKU_PERMISSION_REQUEST_CODE = 703;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,6 +56,8 @@ public class GuiActivity extends AppCompatActivity {
         gui_acc_serv = findViewById(R.id.gui_acc_serv);
         gui_overlay_perm = findViewById(R.id.gui_overlay_perm);
         gui_overlay_serv = findViewById(R.id.gui_overlay_serv);
+        gui_shizuku_perm = findViewById(R.id.gui_shizuku_perm);
+        gui_shizuku_serv = findViewById(R.id.gui_shizuku_serv);
         gui_about = findViewById(R.id.gui_about);
 
         bt_saveBossKeyValue = findViewById(R.id.bt_saveBossKey);
@@ -157,8 +161,15 @@ public class GuiActivity extends AppCompatActivity {
             MouseEmulationEngine.isBossKeySetToToggle = value;
         })));
 
+        Shizuku.addRequestPermissionResultListener(this::onRequestPermissionsResult);
         populateText();
-        findViewById(R.id.gui_setup_perm).setOnClickListener(view -> askPermissions());
+        findViewById(R.id.gui_setup_perm).setOnClickListener(view -> setupPermissionsBtn());
+    }
+
+    @Override
+    protected void onDestroy() {
+        Shizuku.removeRequestPermissionResultListener(this::onRequestPermissionsResult);
+        super.onDestroy();
     }
 
     private boolean isBossKeyChanged() {
@@ -188,54 +199,62 @@ public class GuiActivity extends AppCompatActivity {
         cb_behaviour_bossKey.setChecked(bossKeyBehaviour);
     }
 
-    private void askPermissions() {
-        if (Helper.isOverlayDisabled(this)) {
-            try {
-                startActivityForResult(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
-                        ACTION_MANAGE_OVERLAY_PERMISSION_REQUEST_CODE);
-            } catch (Exception unused) {
-                Toast.makeText(this, "Overlay Permission Handler not Found", Toast.LENGTH_SHORT).show();
-            }
-        }
-        if (!Helper.isOverlayDisabled(this) && Helper.isAccessibilityDisabled(this)) {
+    private void setupPermissionsBtn() {
+        if (Helper.isOverlayDisabled(this))
+            checkOverlayPerms();
+        else if (Helper.isAccessibilityDisabled(this))
             checkAccPerms();
+        else if (Helper.isShizukuDisabled())
+            checkShizukuPerms();
+    }
+
+    private void checkOverlayPerms() {
+        if (!Helper.isOverlayDisabled(this)) return;
+        try {
+            startActivityForResult(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
+                    ACTION_MANAGE_OVERLAY_PERMISSION_REQUEST_CODE);
+        } catch (Exception unused) {
+            Toast.makeText(this, "Overlay Permission handler not found", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void checkAccPerms() {
-        if (Helper.isAccessibilityDisabled(this))
-            try {
-//                startActivity(new Intent(getPackageManager().getLeanbackLaunchIntentForPackage("com.wolf.apm").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))); HELPER APP
-                startActivityForResult(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
-                        ACTION_ACCESSIBILITY_PERMISSION_REQUEST_CODE);
-            } catch (Exception exception) {
-                Toast.makeText(this, "Acessibility Handler not Found", Toast.LENGTH_SHORT).show();
-            }
+        if (!Helper.isAccessibilityDisabled(this)) return;
+        try {
+            startActivityForResult(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
+                    ACTION_ACCESSIBILITY_PERMISSION_REQUEST_CODE);
+        } catch (Exception exception) {
+            Toast.makeText(this, "Acessibility handler not found", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void checkShizukuPerms() {
+        if (Helper.isShizukuMissing()) {
+            Toast.makeText(this, "Shizuku is not installed or version < 11", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (Helper.isShizukuDisabled())
+            Shizuku.requestPermission(ACTION_SHIZUKU_PERMISSION_REQUEST_CODE);
     }
 
     public void populateText() {
-        if (Helper.isOverlayDisabled(this))  gui_overlay_perm.setText(R.string.perm_overlay_denied);
-        else gui_overlay_perm.setText(R.string.perm_overlay_allowed);
+        gui_overlay_perm.setText(Helper.isOverlayDisabled(this) ? R.string.perm_overlay_denied : R.string.perm_overlay_allowed);
+        gui_acc_perm.setText(Helper.isAccessibilityDisabled(this) ? R.string.perm_acc_denied : R.string.perm_acc_allowed);
 
-        if (Helper.isAccessibilityDisabled(this)) {
-            gui_acc_perm.setText(R.string.perm_acc_denied);
-            gui_acc_serv.setText(R.string.serv_acc_denied);
-            gui_overlay_serv.setText(R.string.serv_overlay_denied); }
-        else gui_acc_perm.setText(R.string.perm_acc_allowed);
-
-        if (Helper.isAccessibilityDisabled(this) && Helper.isOverlayDisabled(this)) {
-            gui_acc_perm.setText(R.string.perm_acc_denied);
-            gui_acc_serv.setText(R.string.serv_acc_denied);
-            gui_overlay_perm.setText(R.string.perm_overlay_denied);
-            gui_overlay_serv.setText(R.string.serv_overlay_denied);
-        }
+        gui_shizuku_perm.setText(Helper.isShizukuDisabled() ? R.string.perm_shizuku_denied : R.string.perm_shizuku_allowed);
+        if (Helper.isShizukuMissing())
+            gui_shizuku_serv.setText(R.string.serv_shizuku_missing);
+        else
+            gui_shizuku_serv.setText(Helper.isShizukuMissing() ? R.string.serv_shizuku_denied : R.string.serv_shizuku_allowed);
 
         if (!Helper.isAccessibilityDisabled(this) && !Helper.isOverlayDisabled(this)) {
-            gui_acc_perm.setText(R.string.perm_acc_allowed);
             gui_acc_serv.setText(R.string.serv_acc_allowed);
-            gui_overlay_perm.setText(R.string.perm_overlay_allowed);
             gui_overlay_serv.setText(R.string.serv_overlay_allowed);
-            findViewById(R.id.gui_setup_perm).setVisibility(View.GONE);
+            if (Helper.isShizukuMissing() || !Helper.isShizukuDisabled())
+                findViewById(R.id.gui_setup_perm).setVisibility(View.GONE);
+        } else {
+            gui_acc_serv.setText(R.string.serv_acc_denied);
+            gui_overlay_serv.setText(R.string.serv_overlay_denied);
         }
     }
 
@@ -245,12 +264,20 @@ public class GuiActivity extends AppCompatActivity {
 
         if (requestCode == ACTION_MANAGE_OVERLAY_PERMISSION_REQUEST_CODE)
             if (Helper.isOverlayDisabled(this)) {
-                Toast.makeText(this, "Overlay Permissions Denied", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Overlay Permissions denied", Toast.LENGTH_SHORT).show();
             } else checkAccPerms();
         if (requestCode == ACTION_ACCESSIBILITY_PERMISSION_REQUEST_CODE)
             if (Helper.isAccessibilityDisabled(this)) {
                 Toast.makeText(this, "Accessibility Services not running", Toast.LENGTH_SHORT).show();
-            }
+            } else checkShizukuPerms();
+    }
+
+    private void onRequestPermissionsResult(int requestCode, int grantResult) {
+        if (requestCode == ACTION_SHIZUKU_PERMISSION_REQUEST_CODE) {
+            boolean granted = grantResult == PackageManager.PERMISSION_GRANTED;
+            if (!granted)
+                Toast.makeText(this, "Shizuku Permissions denied", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
