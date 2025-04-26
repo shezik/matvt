@@ -1,3 +1,4 @@
+// Based on https://github.com/Genymobile/scrcpy/blob/c5ed2cfc28ee7c7b59b11eb4db1258ac1c633bff/server/src/main/java/com/genymobile/scrcpy/wrappers/InputManager.java
 package io.github.virresh.matvt.engine.impl;
 
 import android.annotation.SuppressLint;
