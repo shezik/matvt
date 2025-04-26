@@ -35,7 +35,7 @@ import io.github.virresh.matvt.view.OverlayView;
 
 public class MouseEmulationEngine {
 
-    private static boolean DPAD_SELECT_PRESSED = false;
+    private static boolean DPAD_ENTER_PRESSED = false;
     private static String LOG_TAG = "MOUSE_EMULATION";
 
     CountDownTimer waitToChange;
@@ -317,10 +317,10 @@ public class MouseEmulationEngine {
                     attachTimer(movementCodeMap.get(keyEvent.getKeyCode()));
                 consumed = true;
             }
-            else if(keyEvent.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER) {
+            else if(keyEvent.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
                 // just consume this event to prevent propagation
                 DPAD_Center_Init_Point = new Point((int) mPointerControl.getPointerLocation().x, (int) mPointerControl.getPointerLocation().y);
-                DPAD_SELECT_PRESSED = true;
+                DPAD_ENTER_PRESSED = true;
                 consumed = true;
             }
         }
@@ -332,8 +332,8 @@ public class MouseEmulationEngine {
                 detachPreviousTimer();
                 consumed = true;
             }
-            else if (keyEvent.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER) {
-                DPAD_SELECT_PRESSED = false;
+            else if (keyEvent.getKeyCode() == KeyEvent.KEYCODE_ENTER) {
+                DPAD_ENTER_PRESSED = false;
                 detachPreviousTimer();
 //                if (keyEvent.getEventTime() - keyEvent.getDownTime() > 500) {
                     // unreliable long click event if button was pressed for more than 500 ms
